@@ -1,0 +1,46 @@
+name: Version Bump
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Maven Versions Plugin
+        run: mvn org.codehaus.mojo:versions-maven-plugin:2.15.0:help
+
+      - name: Get current version
+        id: get_version
+        run: |
+          version=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          version=${version/-SNAPSHOT/}  # remove -SNAPSHOT if present
+          echo "current_version=$version" >> $GITHUB_ENV
+
+      - name: Increment patch version
+        id: increment
+        run: |
+          IFS='.' read -r major minor patch <<< "$current_version"
+          patch=$((patch+1))
+          new_version="$major.$minor.$patch-SNAPSHOT"
+          echo "new_version=$new_version" >> $GITHUB_ENV
+          echo "New version: $new_version"
+
+      - name: Set new version in Maven
+        run: mvn versions:set -DnewVersion=$new_version
+
+      - name: Build Docker image
+	    run: |
+		  docker build -t my-app:${{ env.new_version }} .
