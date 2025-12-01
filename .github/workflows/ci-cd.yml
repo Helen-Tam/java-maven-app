@@ -66,5 +66,6 @@ jobs:
         run: |
           OWNER=${GITHUB_REPOSITORY_OWNER,,}
           NEW_VERSION=${{ needs.patch-version.outputs.new_version }}
+		  echo "Pushing Docker image with version: $NEW_VERSION" 
           docker push ghcr.io/$OWNER/java-maven-app:$NEW_VERSION
 
