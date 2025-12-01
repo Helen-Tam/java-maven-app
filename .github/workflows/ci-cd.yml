@@ -10,30 +10,25 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       new_version: ${{ steps.increment.outputs.new_version }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-
-      - name: Set up Java
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: '17'
 
       - name: Get current version
         id: get_version
         run: |
           version=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           version=${version/-SNAPSHOT/}
-          echo "current_version=$version" >> $GITHUB_ENV
+          echo "current_version=$version" >> $GITHUB_OUTPUT
 
       - name: Increment patch version
         id: increment
         run: |
-          IFS='.' read -r major minor patch <<< "$current_version"
+          IFS='.' read -r major minor patch <<< "${{ steps.get_version.outputs.current_version }}"
           patch=$((patch+1))
           new_version="$major.$minor.$patch-SNAPSHOT"
-          echo "new_version=$new_version" >> $GITHUB_ENV
+          echo "new_version=$new_version" >> $GITHUB_OUTPUT
           echo "::set-output name=new_version::$new_version"
           echo "New version: $new_version"
 
@@ -50,8 +45,9 @@ jobs:
       - name: Build Docker image
         run: |
           OWNER=${GITHUB_REPOSITORY_OWNER,,}
-          NEW_VERSION=${{ needs.patch-version.outputs.new_version }}
-          docker build -t ghcr.io/$OWNER/java-maven-app:$NEW_VERSION .
+          VERSION=${{ needs.patch-version.outputs.new_version }}
+		  echo "Building Docker image with version: $VERSION."
+          docker build -t ghcr.io/$OWNER/java-maven-app:$VERSION 
 
   docker-push:
     runs-on: ubuntu-latest
@@ -65,7 +61,7 @@ jobs:
       - name: Push Docker image
         run: |
           OWNER=${GITHUB_REPOSITORY_OWNER,,}
-          NEW_VERSION=${{ needs.patch-version.outputs.new_version }}
-          echo "Pushing Docker image with version: $NEW_VERSION"
-          docker push ghcr.io/$OWNER/java-maven-app:$NEW_VERSION
+          VERSION=${{ needs.patch-version.outputs.new_version }}
+          echo "Pushing Docker image with version: $VERSION."
+          docker push ghcr.io/$OWNER/java-maven-app:$VERSION
 
